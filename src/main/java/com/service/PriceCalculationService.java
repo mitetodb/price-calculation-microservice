@@ -7,38 +7,61 @@ import org.springframework.stereotype.Service;
 @Service
 public class PriceCalculationService {
 
-    public PriceCalculationResponse calculate(PriceCalculationRequest req) {
+    private final ContractPricingService contractPricing;
 
-        double msFee = switch (req.getCategory()) {
-            case "S" -> 25.00;
-            case "M" -> 30.00;
-            case "L" -> 35.00;
-            case "XL" -> 40.00;
-            default -> 30.00;
-        };
+    public PriceCalculationService(ContractPricingService contractPricing) {
+        this.contractPricing = contractPricing;
+    }
 
-        double clientFee = Math.round(msFee * 0.75);
+    public PriceCalculationResponse calculate(PriceCalculationRequest request) {
 
-        double total = req.getProductBasePrice()
-                + req.getPostage()
-                + msFee
-                + clientFee;
+        double productTotal = request.getProductTotal();
 
-        return new PriceCalculationResponse(
-                msFee,
-                clientFee,
-                total,
-                resolveCurrency(req.getCountry())
+        // base service fee price on contract
+        double baseRate = contractPricing.getBaseRate(
+                request.getCustomerId(),
+                request.getCountry(),
+                request.getCategory()
         );
+
+        // category multiplier +25%
+        double categoryMultiplier = switch (request.getCategory()) {
+            case "S" -> 1.00;
+            case "M" -> 1.25; // +25%
+            case "L" -> 1.50; // +50%
+            case "XL" -> 1.75; // +75%
+            default -> 1.0;
+        };
+
+        // type multiplier +50%
+        double typeMultiplier = switch (request.getType()) {
+            case "FORWARDING_TO_CLIENT" -> 1.00;
+            case "RETURN_BACK_TO_SELLER" -> 1.50; // +50%
+            default -> 1.0;
+        };
+
+        double testPurchaseFee = baseRate * categoryMultiplier * typeMultiplier;
+
+        // postage prices
+        double postage = switch (request.getCategory()) {
+            case "S" -> 10.00;
+            case "M" -> 15.00;
+            case "L" -> 20.00;
+            case "XL" -> 30.00;
+            default -> 10.0;
+        };
+
+        // response
+        PriceCalculationResponse response = new PriceCalculationResponse();
+        response.setTestPurchaseFee(round(testPurchaseFee));
+        response.setPostageFee(round(postage));
+        response.setProductPrice(round(productTotal));
+
+        return response;
     }
 
-    private String resolveCurrency(String country) {
-        return switch (country.toLowerCase()) {
-            case "germany", "france", "italy", "spain", "austria" -> "EUR";
-            case "bulgaria" -> "BGN";
-            case "poland" -> "PLN";
-            case "england", "uk" -> "GBP";
-            default -> "EUR";
-        };
+    private double round(double v) {
+        return Math.round(v * 100.0) / 100.0;
     }
+
 }
