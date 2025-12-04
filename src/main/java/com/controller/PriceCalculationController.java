@@ -6,7 +6,7 @@ import com.service.PriceCalculationService;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/price")
+@RequestMapping("/api/price")
 public class PriceCalculationController {
 
     private final PriceCalculationService service;
