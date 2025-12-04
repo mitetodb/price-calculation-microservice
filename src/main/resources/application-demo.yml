@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: price-calculation-microservice
+
+pricing:
+  demo-mode: true
+
+logging:
+  level:
+    root: INFO
