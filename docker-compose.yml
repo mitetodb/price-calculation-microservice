@@ -1,0 +1,40 @@
+services:
+  # MySQL Database Service
+  price-db:
+    image: mysql:8.0
+    container_name: price_db
+    environment:
+      MYSQL_DATABASE: pricedb
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_USER: priceuser
+      MYSQL_PASSWORD: pricepassword
+    ports:
+      - "3307:3306" # Exposed on localhost:3307 to avoid conflict with local MySQL
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Spring Boot Application Service
+  price-service:
+    build: .
+    container_name: price_service
+    depends_on:
+      price-db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      # Override Spring Datasource settings to point to the Docker container
+      SPRING_DATASOURCE_URL: jdbc:mysql://price-db:3306/pricedb?allowPublicKeyRetrieval=true&useSSL=false
+      SPRING_DATASOURCE_USERNAME: priceuser
+      SPRING_DATASOURCE_PASSWORD: pricepassword
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      # Enable demo mode if needed via env var
+      PRICING_DEMO_MODE: "false"
+
+volumes:
+  db_data:
