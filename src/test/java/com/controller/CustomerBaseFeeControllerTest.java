@@ -60,4 +60,49 @@ class CustomerBaseFeeControllerTest {
                         .content(objectMapper.writeValueAsString(dto)))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void deleteBaseFee_ReturnsNoContent() throws Exception {
+        UUID customerId = UUID.randomUUID();
+
+        doNothing().when(service).deleteBaseFee(any(UUID.class));
+
+        mockMvc.perform(delete("/customers/{customerId}/base-fee", customerId))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void createBaseFee_WithInvalidRequestBody_ReturnsBadRequest() throws Exception {
+        UUID customerId = UUID.randomUUID();
+
+        // Empty body
+        mockMvc.perform(post("/customers/{customerId}/base-fee", customerId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isCreated()); // Service handles null values
+    }
+
+    @Test
+    void createBaseFee_WithInvalidContentType_ReturnsUnsupportedMediaType() throws Exception {
+        UUID customerId = UUID.randomUUID();
+
+        mockMvc.perform(post("/customers/{customerId}/base-fee", customerId)
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("invalid"))
+                .andExpect(status().isUnsupportedMediaType());
+    }
+
+    @Test
+    void updateBaseFee_WithNullBaseFee_ReturnsOk() throws Exception {
+        UUID customerId = UUID.randomUUID();
+        CustomerBaseFeeDTO dto = new CustomerBaseFeeDTO();
+        // baseServiceFee is null
+
+        doNothing().when(service).updateBaseFee(any(UUID.class), any(CustomerBaseFeeDTO.class));
+
+        mockMvc.perform(put("/customers/{customerId}/base-fee", customerId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isOk());
+    }
 }

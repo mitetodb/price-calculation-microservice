@@ -46,4 +46,51 @@ class CustomerBaseFeeRepositoryTest {
         boolean exists = repository.existsByCustomerId(customerId);
         assertThat(exists).isTrue();
     }
+
+    @Test
+    void testExistsByCustomerId_ReturnsFalse_WhenFeeDoesNotExist() {
+        UUID customerId = UUID.randomUUID();
+        
+        boolean exists = repository.existsByCustomerId(customerId);
+        assertThat(exists).isFalse();
+    }
+
+    @Test
+    void testDeleteByCustomerId() {
+        UUID customerId = UUID.randomUUID();
+        CustomerBaseFee fee = new CustomerBaseFee(customerId, 30.0, LocalDateTime.now());
+        repository.save(fee);
+        
+        repository.deleteByCustomerId(customerId);
+        
+        Optional<CustomerBaseFee> found = repository.findByCustomerId(customerId);
+        assertThat(found).isEmpty();
+    }
+
+    @Test
+    void testDeleteByCustomerId_DoesNotThrowException_WhenFeeDoesNotExist() {
+        UUID customerId = UUID.randomUUID();
+        
+        // Should not throw exception
+        repository.deleteByCustomerId(customerId);
+        
+        Optional<CustomerBaseFee> found = repository.findByCustomerId(customerId);
+        assertThat(found).isEmpty();
+    }
+
+    @Test
+    void testDeleteByCustomerId_OnlyDeletesSpecifiedCustomer() {
+        UUID customerId1 = UUID.randomUUID();
+        UUID customerId2 = UUID.randomUUID();
+        CustomerBaseFee fee1 = new CustomerBaseFee(customerId1, 40.0, LocalDateTime.now());
+        CustomerBaseFee fee2 = new CustomerBaseFee(customerId2, 50.0, LocalDateTime.now());
+        repository.save(fee1);
+        repository.save(fee2);
+        
+        repository.deleteByCustomerId(customerId1);
+        
+        assertThat(repository.findByCustomerId(customerId1)).isEmpty();
+        assertThat(repository.findByCustomerId(customerId2)).isPresent();
+        assertThat(repository.findByCustomerId(customerId2).get().getBaseServiceFee()).isEqualTo(50.0);
+    }
 }

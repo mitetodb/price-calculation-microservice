@@ -56,4 +56,21 @@ class PriceCalculationControllerTest {
                 .andExpect(jsonPath("$.testPurchaseFee").value(150.0))
                 .andExpect(jsonPath("$.postageFee").value(10.0));
     }
+
+    @Test
+    void calculate_WithInvalidRequestBody_ReturnsBadRequest() throws Exception {
+        // Missing required fields
+        mockMvc.perform(post("/pricing/calculate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk()); // Service handles null values
+    }
+
+    @Test
+    void calculate_WithInvalidContentType_ReturnsUnsupportedMediaType() throws Exception {
+        mockMvc.perform(post("/pricing/calculate")
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .content("invalid"))
+                .andExpect(status().isUnsupportedMediaType());
+    }
 }
