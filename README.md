@@ -11,6 +11,32 @@ This microservice provides a comprehensive pricing engine that calculates test p
 - Service type multipliers (Forwarding to Client, Return Back to Seller)
 - Postage fees based on package category
 
+**Used by:** [Test Purchase Application](https://github.com/mitetodb/test-purchase-application) — live at https://testkauf.getinweb.de (this service is internal only, not publicly exposed).
+
+## Architecture
+```
+ test-purchase app ──HTTP + X-API-Key──> pricing-svc :8081  (/api/pricing/calculate, /api/pricing/customers/...)
+   (Feign client)     internal docker network        │  Spring Boot 3, JPA
+                                                      ▼
+                                                 MySQL 8.4 (pricedb)
+ /actuator/health is open (container healthcheck); everything under /api requires X-API-Key.
+```
+
+## Quick local run
+```bash
+export PRICING_API_KEY=$(openssl rand -hex 24) DB_PASSWORD=...   # never commit secrets
+docker compose up -d --build        # no host port by default: add ports ["127.0.0.1:8081:8081"] in an override; or: ./mvnw spring-boot:run with DB_URL/DB_USERNAME/DB_PASSWORD set
+scripts/ci.sh                       # tests + secret scan
+curl -H "X-API-Key: $PRICING_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"customerId":"00000000-0000-0000-0000-000000000001","country":"GERMANY","category":"M","type":"FORWARDING_TO_CLIENT","productTotal":100}' \
+  http://localhost:8081/api/pricing/calculate
+```
+
+## Deployment (Hetzner, with the app)
+Production runs inside the test-purchase-application compose stack (`deploy/docker-compose.prod.yml`), built from this repo
+(`PRICING_BUILD_CONTEXT`), with no published ports, a `mem_limit`, and the API key from the root-only `deploy/.env`.
+See the app README / `deploy/server-setup.sh` for the full procedure.
+
 ## Features
 
 - 🧮 **Dynamic Price Calculation** - Calculate prices with multiple factors (customer, country, category, type)
@@ -46,7 +72,7 @@ This microservice provides a comprehensive pricing engine that calculates test p
 ### 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/mitetodb/price-calculation-microservice.git
 cd price-calculation-microservice
 ```
 
@@ -58,8 +84,8 @@ Update `src/main/resources/application.properties`:
 
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/testpurchase_rest_db?useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
-spring.datasource.username=root
-spring.datasource.password=root
+spring.datasource.username=${DB_USERNAME}
+spring.datasource.password=${DB_PASSWORD}
 ```
 
 #### Option B: Docker Compose (Recommended)
@@ -110,8 +136,8 @@ server.servlet.context-path=/api
 
 # Database Configuration
 spring.datasource.url=jdbc:mysql://localhost:3306/testpurchase_rest_db
-spring.datasource.username=root
-spring.datasource.password=root
+spring.datasource.username=${DB_USERNAME}
+spring.datasource.password=${DB_PASSWORD}
 spring.jpa.hibernate.ddl-auto=update
 
 # Actuator Configuration
