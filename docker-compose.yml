@@ -1,40 +1,45 @@
+# Standalone stack for local testing. Values come from .env (copy .env.example).
+# No ports are published: the DB is never exposed, the API only on the internal network.
+# For local access, add a "ports: ['127.0.0.1:8081:8081']" override yourself.
 services:
-  # MySQL Database Service
   price-db:
     image: mysql:8.0
-    container_name: price_db
+    restart: unless-stopped
     environment:
-      MYSQL_DATABASE: pricedb
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_USER: priceuser
-      MYSQL_PASSWORD: pricepassword
-    ports:
-      - "3307:3306" # Exposed on localhost:3307 to avoid conflict with local MySQL
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-pricedb}
+      MYSQL_USER: ${DB_USERNAME:?set DB_USERNAME in .env}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
     volumes:
       - db_data:/var/lib/mysql
+    networks: [internal]
+    mem_limit: 512m
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
 
-  # Spring Boot Application Service
-  price-service:
+  pricing-svc:
     build: .
-    container_name: price_service
+    image: price-calculation-microservice:local
+    restart: unless-stopped
     depends_on:
       price-db:
         condition: service_healthy
-    ports:
-      - "8080:8080"
     environment:
-      # Override Spring Datasource settings to point to the Docker container
-      SPRING_DATASOURCE_URL: jdbc:mysql://price-db:3306/pricedb?allowPublicKeyRetrieval=true&useSSL=false
-      SPRING_DATASOURCE_USERNAME: priceuser
-      SPRING_DATASOURCE_PASSWORD: pricepassword
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      # Enable demo mode if needed via env var
-      PRICING_DEMO_MODE: "false"
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:mysql://price-db:3306/${MYSQL_DATABASE:-pricedb}?allowPublicKeyRetrieval=true&useSSL=false
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      PRICING_API_KEY: ${PRICING_API_KEY:?set PRICING_API_KEY in .env}
+    expose: ["8081"]
+    networks: [internal]
+    mem_limit: 512m
+
+networks:
+  internal:
+    internal: true
 
 volumes:
   db_data:

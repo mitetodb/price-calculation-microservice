@@ -396,6 +396,50 @@ The application includes AOP-based logging:
 
 Log levels are configurable in `application.properties`.
 
+## Configuration & Secrets
+
+No secrets are committed. All credentials come from environment variables; copy `.env.example` to `.env` (gitignored) and fill it in.
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `SPRING_PROFILES_ACTIVE` | `demo` (local) or `prod` (server) | `demo` |
+| `DB_URL` | JDBC URL | local MySQL (demo only) |
+| `DB_USERNAME` / `DB_PASSWORD` | DB credentials | empty (required in `prod`) |
+| `PRICING_API_KEY` | Shared secret, sent as `X-API-Key` header | empty = check disabled; **required in `prod`** (startup fails without it) |
+| `PRICING_DEFAULT_BASE_RATE` | Base fee for countries without an explicit rate | `150.00` |
+| `PRICING_COUNTRY_BASE_RATES_<COUNTRY>` | Base fee per country, e.g. `..._AUSTRIA=160.00` | GERMANY 150, AUSTRIA 160 |
+| `JPA_DDL_AUTO` | Hibernate schema mode | `update` |
+| `SPRINGDOC_SWAGGER_UI_ENABLED` | Swagger UI in `prod` | `false` |
+
+Base rate resolution: customer contract fee (DB, `/customers/{id}/base-fee`) → configured country rate (case-insensitive) → `pricing.default-base-rate`.
+
+### API key
+
+Every request except `/api/actuator/health`, `/api/actuator/info`, `/api/v3/api-docs` and `/api/swagger-ui` needs `X-API-Key: $PRICING_API_KEY`, otherwise `401`. Configure the same key in test-purchase-application.
+
+### OpenAPI
+
+- Spec: `GET /api/v3/api-docs`
+- Swagger UI: `/api/swagger-ui.html` (enabled in `demo`; off in `prod` unless `SPRINGDOC_SWAGGER_UI_ENABLED=true`)
+
+## Local CI
+
+```bash
+scripts/ci.sh            # secret scan + mvn clean verify
+scripts/ci.sh --docker   # ... plus docker build
+```
+Requires Java 17 (and Maven or the wrapper). No GitHub Actions are used.
+
+## Deployment
+
+The service is **internal only**: it must never be published to the internet. test-purchase-application reaches it at `http://pricing-svc:8081/api` on a private Docker network.
+
+1. On the server, create `.env` from `.env.example` with fresh random values (`openssl rand -base64 32`), `chmod 600 .env`, owned by root. Never commit it.
+2. `docker compose up -d --build` – `pricing-svc` and `price-db` join the `internal` network only; no ports are published, the DB is never exposed.
+3. In the combined production stack, attach `pricing-svc` to the same internal network as the app and pass `PRICING_API_KEY` to both.
+4. The image runs as a non-root user, uses the `prod` profile and has a Docker `HEALTHCHECK` on `/api/actuator/health`. Containers have `mem_limit`s.
+5. Back up the `db_data` volume (e.g. `mysqldump` via `docker compose exec price-db`) before upgrades.
+
 ## Development
 
 ### Code Style

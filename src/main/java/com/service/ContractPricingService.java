@@ -1,5 +1,6 @@
 package com.service;
 
+import com.config.PricingProperties;
 import com.model.CustomerBaseFee;
 import org.springframework.stereotype.Service;
 
@@ -9,25 +10,18 @@ import java.util.UUID;
 public class ContractPricingService {
 
     private final CustomerBaseFeeService customerBaseFeeService;
+    private final PricingProperties pricingProperties;
 
-    public ContractPricingService(CustomerBaseFeeService customerBaseFeeService) {
+    public ContractPricingService(CustomerBaseFeeService customerBaseFeeService,
+                                  PricingProperties pricingProperties) {
         this.customerBaseFeeService = customerBaseFeeService;
+        this.pricingProperties = pricingProperties;
     }
 
     public double getBaseRate(UUID customerId, String country, String category) {
-        // 1) Try to load baseServiceFee from DB for this customer
+        // 1) contract-specific fee from DB, 2) configured country rate, 3) configured default
         return customerBaseFeeService.findByCustomerId(customerId)
                 .map(CustomerBaseFee::getBaseServiceFee)
-                .orElseGet(() -> getDefaultBaseRateByCountry(country));
+                .orElseGet(() -> pricingProperties.baseRateFor(country));
     }
-
-    private double getDefaultBaseRateByCountry(String country) {
-        // todo
-        return switch (country.toUpperCase()) {
-            case "GERMANY" -> 150.00;  // € 150
-            case "AUSTRIA" -> 160.00;  // € 160
-            default -> 150.00;    // € 150 default
-        };
-    }
-
 }
