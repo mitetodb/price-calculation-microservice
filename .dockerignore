@@ -7,4 +7,6 @@ mvnw.cmd
 .mvn
 help.md
 Dockerfile
-docker-compose.yml
+docker-compose.yml.env
+.env.*
+scripts
